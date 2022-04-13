@@ -2,17 +2,20 @@ const express = require("express");
 const mongoose = require("mongoose");
 const todoHandler = require("./routerHandler/todoHandler");
 const userHandler = require("./routerHandler/userHandler");
+// to access .env file
+const dotenv = require("dotenv");
 
 const port = 3000;
 
 // express app initialize
 const app = express();
+dotenv.config(); // to access .env file
 app.use(express.json());
 
 // database connection with mongoose
 mongoose
-  .connect("mongodb://localhost/crud-operation", {
-    // --unhandled-rejections=strict: false
+  .connect("mongodb://localhost/crud-operations", {
+    // mongodb options
   })
   .then(() => console.log("connection successful"))
   .catch((err) => console.log("error", err));
@@ -33,20 +36,15 @@ app.post("/", (req, res) => {
 
 // default error handler
 app.use((req, res, next) => {
-  res.status(404).send("not found");
+  res.status(404).send("not found anything");
 });
 
-// server error
+// default error handler
 app.use((err, req, res, next) => {
-  if (res.headerSent) {
-    res.send("there was a server error");
-  } else {
-    if (err.message) {
-      res.status(500).send(err.message);
-    } else {
-      res.status(500).send("there was error");
-    }
+  if (res.headersSent) {
+    return next(err);
   }
+  res.status(500).json({ error: err });
 });
 
 app.listen(port, () => {

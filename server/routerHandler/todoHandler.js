@@ -2,28 +2,27 @@ const mongoose = require("mongoose");
 const express = require("express");
 const router = express.Router();
 const todoShema = require("../schema/todoSchema");
+const checkLogin = require("../middlewares/checkLogin");
 const Todo = new mongoose.model("Todo", todoShema);
 
 // get a single todo
-router.get("/:id", async (req, res) => {
-  const result = await Todo.findOne({ _id: req.params.id }, (err, data) => {
-    if (err) {
-      res.status(500).json({
-        error: "there was a sever side error!",
-      });
-    } else {
-      res.status(200).json({
-        message: "todo was getted successfully",
-        result: data,
-      });
-    }
-  });
-  console.log(res.body);
+router.get("/:id", checkLogin, async (req, res) => {
+  const data = await Todo.find({ _id: req.params.id });
+  if (data) {
+    res.status(200).json({
+      message: "todo was getted successfully",
+      result: data,
+    });
+  } else {
+    res.status(500).json({
+      error: "there was a sever side error!",
+    });
+  }
 });
 
 // get multiple todos
-router.get("/", async (req, res) => {
-  await Todo.find((err, data) => {
+router.get("/", (req, res) => {
+  Todo.find((err, data) => {
     if (err) {
       res.status(500).json({
         error: "there was a server side errror",
@@ -38,9 +37,9 @@ router.get("/", async (req, res) => {
 });
 
 // post a single todo
-router.post("/", async (req, res) => {
+router.post("/", (req, res) => {
   const newTodo = new Todo(req.body);
-  await newTodo.save((err) => {
+  newTodo.save((err) => {
     if (err) {
       res.status(500).json({
         error: "there was a server side errror",
@@ -52,6 +51,7 @@ router.post("/", async (req, res) => {
     }
   });
 });
+
 // post a multiple todos
 router.post("/all", async (req, res) => {
   await Todo.insertMany(req.body, (err) => {

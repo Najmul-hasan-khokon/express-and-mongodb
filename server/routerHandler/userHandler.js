@@ -2,138 +2,76 @@ const mongoose = require("mongoose");
 const express = require("express");
 const router = express.Router();
 const userSchema = require("../schema/userSchema");
+const bcrypt = require("bcrypt");
+var jwt = require("jsonwebtoken");
+const checkLogin = require("../middlewares/checkLogin");
 
 // user model
 const User = new mongoose.model("user", userSchema);
 
-// get all users
-router.get("/", (req, res) => {
-  User.find((err, data) => {
-    if (err) {
-      res.status(500).json({
-        error: "there was a server side error",
-      });
-    } else {
-      res.status(200).json({
-        result: data,
-        message: "users were getted successfully!",
-      });
-    }
-  });
-});
-
-// get all users with chaining methods
-/**
- * router.get("/", (req, res) => {
-  User.find({ name: "najmul" })
-    .select({ age: 0 })
-    .limit(1)
-    .exec((err, data) => {
-      if (err) {
-        res.status(500).json({
-          error: "there was a server side error",
-        });
-      } else {
-        res.status(200).json({
-          result: data,
-          message: "users were getted successfully!",
-        });
-      }
-    });
-});
- */
-
-// get a  single user By Id
-router.get("/:id", async (req, res) => {
+// signup
+router.post("/signup", async (req, res) => {
   try {
-    const data = await User.findOne({ _id: req.params.id });
+    const hashedPassword = await bcrypt.hash(req.body.password, 10);
+    const newUser = await new User({
+      name: req.body.name,
+      username: req.body.username,
+      password: hashedPassword,
+    });
+
+    await newUser.save();
     res.status(200).json({
-      result: data,
-      message: "users was getted successfully!",
+      message: "signup was successfull",
     });
   } catch (err) {
-    res.status(500).json({ error: "there was a server side error" });
+    res.status(500).json({
+      error: "signup was failed",
+    });
   }
 });
 
-// post a single user
-router.post("/", (req, res) => {
-  const user = req.body;
-  const newUser = new User(user);
-  newUser.save((err, data) => {
-    if (err) {
-      res.status(500).json({
-        error: "there was a server side error",
-      });
-    } else {
-      res.status(200).json({
-        message: "user was inserted successfully!",
-        result: data,
-      });
-    }
-  });
-});
+// login
+router.post("/login", async (req, res) => {
+  try {
+    const user = await User.find({ username: req.body.username });
 
-// post multiple users
-router.post("/all", (req, res) => {
-  User.insertMany(req.body, (err, data) => {
-    if (err) {
-      res.status(500).json({
-        error: "there was a server side error",
-      });
-    } else {
-      res.status(200).json({
-        message: "user were inserted successfully!",
-        result: data,
-      });
-    }
-  });
-});
+    if (user && user.length > 0) {
+      const isValidPassword = await bcrypt.compare(
+        req.body.password,
+        user[0].password
+      );
 
-// delete a single user By Id
-router.delete("/:id", (req, res) => {
-  User.deleteOne({ _id: req.params.id }, (err, data) => {
-    if (err) {
-      res.status(500).json({
-        error: "there was a server side error",
-      });
-    } else {
-      res.status(200).json({
-        message: "user was deleted successfully!",
-      });
-    }
-  });
-});
+      // jodi password match kore
+      if (isValidPassword) {
+        // Genarate token
+        const token = jwt.sign(
+          {
+            username: user[0].username,
+            userId: user[0]._id,
+          },
+          process.env.JWT_SECRET,
+          { expiresIn: "1h" }
+        );
 
-// delete all user
-router.delete("/", (req, res) => {
-  User.deleteMany((err, data) => {
-    if (err) {
-      res.status(500).json({
-        error: "there was a server side error",
-      });
+        res.status(200).json({
+          accessToken: token,
+          message: "login successfull",
+        });
+      } else {
+        res.status(401).json({
+          error: "Authentication failed",
+        });
+      }
     } else {
-      res.status(200).json({
-        message: "user were deleted successfully!",
+      res.status(401).json({
+        error: "Authentication failed",
       });
     }
-  });
-});
-
-// update a user By Id
-router.put("/:id", (req, res) => {
-  User.updateOne({ _id: req.params.id }, { $set: req.body }, (err, data) => {
-    if (err) {
-      res.status(500).json({
-        error: "there was a server side error",
-      });
-    } else {
-      res.status(200).json({
-        message: "user was updated successfully!",
-        result: data,
-      });
-    }
-  });
+  } catch (err) {
+    res.status(401).json({
+      error: "Authentication failed",
+    });
+  }
 });
 
 module.exports = router;
